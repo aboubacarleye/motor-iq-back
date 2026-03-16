@@ -8,7 +8,7 @@ class DriverBase(BaseModel):
     phone: str
 
 class DriverCreate(DriverBase):
-    password: str
+    password: Optional[str] = None
 
 class Driver(DriverBase):
     id: int
@@ -22,7 +22,7 @@ class VehicleBase(BaseModel):
     license_plate: str
 
 class VehicleCreate(VehicleBase):
-    driver_id: int
+    pass
 
 class Vehicle(VehicleBase):
     id: int
@@ -36,7 +36,6 @@ class ClaimBase(BaseModel):
     location_lng: float
 
 class ClaimCreate(ClaimBase):
-    driver_id: int
     vehicle_id: int
 
 class Claim(ClaimBase):
