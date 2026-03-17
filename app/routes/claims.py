@@ -1,86 +1,76 @@
-from fastapi import APIRouter, Depends, HTTPException, status
-from sqlalchemy.orm import Session
-from app.database.connection import get_db
-from app.schemas.schemas import Claim, ClaimCreate
-from app.models.models import Claim as ClaimModel, Driver as DriverModel, Vehicle
-from app.routes.auth import get_current_user
-from app.ai.gemini_service import analyze_claim
 from datetime import datetime
+
+from fastapi import APIRouter, HTTPException
+
+from app.repositories.memory_db import db
+from app.schemas.schemas import Claim, ClaimCreate, ClaimUpdate, TimelineStep
+
 
 router = APIRouter(prefix="/claims", tags=["claims"])
 
+
 @router.post("/", response_model=Claim)
-def create_claim(
-    claim: ClaimCreate,
-    current_user: DriverModel = Depends(get_current_user),
-    db: Session = Depends(get_db)
-):
-    """Create a claim for the authenticated user"""
-    # Verify the vehicle belongs to the current user
-    vehicle = db.query(Vehicle).filter(Vehicle.id == claim.vehicle_id).first()
-    if not vehicle or vehicle.driver_id != current_user.id:
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail="You can only create claims for your own vehicles"
-        )
-    
-    db_claim = ClaimModel(
-        driver_id=current_user.id,
-        vehicle_id=claim.vehicle_id,
-        description=claim.description,
-        location_lat=claim.location_lat,
-        location_lng=claim.location_lng,
-        date_created=datetime.utcnow()
+def create_claim(payload: ClaimCreate) -> Claim:
+    # Basic validation
+    if not db.get_driver(payload.driver_id):
+        raise HTTPException(status_code=404, detail="Driver not found")
+    if not db.get_vehicle(payload.vehicle_id):
+        raise HTTPException(status_code=404, detail="Vehicle not found")
+
+    created = db.create_claim(
+        driver_id=payload.driver_id,
+        vehicle_id=payload.vehicle_id,
+        description=payload.description,
+        status=payload.status,
+        date_created=payload.date_created,
     )
-    db.add(db_claim)
-    db.commit()
-    db.refresh(db_claim)
-    # AI analysis
-    analysis = analyze_claim({
-        "description": claim.description,
-        "location": f"{claim.location_lat}, {claim.location_lng}"
-    })
-    db_claim.fraud_risk_score = analysis["fraud_risk_score"]
-    db_claim.ai_analysis = str(analysis)
-    db.commit()
-    return db_claim
+    return _to_claim_schema(created)
 
-@router.get("/my/list", response_model=list[Claim])
-def get_my_claims(
-    current_user: DriverModel = Depends(get_current_user),
-    db: Session = Depends(get_db)
-):
-    """Get all claims for the current user"""
-    return db.query(ClaimModel).filter(ClaimModel.driver_id == current_user.id).all()
-
-@router.get("/{claim_id}", response_model=Claim)
-def get_claim(
-    claim_id: int,
-    current_user: DriverModel = Depends(get_current_user),
-    db: Session = Depends(get_db)
-):
-    """Get claim details - user can only view their own claims"""
-    db_claim = db.query(ClaimModel).filter(ClaimModel.id == claim_id).first()
-    if not db_claim:
-        raise HTTPException(status_code=404, detail="Claim not found")
-    
-    if db_claim.driver_id != current_user.id:
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail="You can only view your own claims"
-        )
-    return db_claim
 
 @router.get("/driver/{driver_id}", response_model=list[Claim])
-def get_claims_by_driver(
-    driver_id: int,
-    current_user: DriverModel = Depends(get_current_user),
-    db: Session = Depends(get_db)
-):
-    """Get claims for a specific driver - user can only view their own"""
-    if current_user.id != driver_id:
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail="You can only view your own claims"
-        )
-    return db.query(ClaimModel).filter(ClaimModel.driver_id == driver_id).all()
+def list_claims_for_driver(driver_id: int) -> list[Claim]:
+    if not db.get_driver(driver_id):
+        raise HTTPException(status_code=404, detail="Driver not found")
+    claims = db.list_claims_for_driver(driver_id)
+    return [_to_claim_schema(c) for c in claims]
+
+
+@router.get("/{claim_id}", response_model=Claim)
+def get_claim(claim_id: int) -> Claim:
+    claim = db.get_claim(claim_id)
+    if not claim:
+        raise HTTPException(status_code=404, detail="Claim not found")
+    return _to_claim_schema(claim)
+
+
+@router.patch("/{claim_id}", response_model=Claim)
+def update_claim(claim_id: int, payload: ClaimUpdate) -> Claim:
+    # Convert Pydantic TimelineStep to dataclass if provided
+    timeline = None
+    if payload.timeline is not None:
+        timeline = [TimelineStep(label=step.label, completed=step.completed) for step in payload.timeline]
+
+    updated = db.update_claim_status(
+        claim_id=claim_id,
+        status=payload.status,
+        fraud_risk_score=payload.fraud_risk_score,
+        timeline=timeline,
+    )
+    if not updated:
+        raise HTTPException(status_code=404, detail="Claim not found")
+    return _to_claim_schema(updated)
+
+
+def _to_claim_schema(obj) -> Claim:
+    return Claim(
+        id=obj.id,
+        claimId=obj.claim_id,
+        description=obj.description,
+        status=obj.status,
+        date_created=obj.date_created,
+        fraud_risk_score=obj.fraud_risk_score,
+        vehicle_id=obj.vehicle_id,
+        vehicleName=obj.vehicle_name,
+        ai_analysis=obj.ai_analysis,
+        timeline=[TimelineStep(label=s.label, completed=s.completed) for s in obj.timeline],
+    )
