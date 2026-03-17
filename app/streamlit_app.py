@@ -1,12 +1,19 @@
 from datetime import datetime
 import random
 import threading
+import os
+import sys
 
 import streamlit as st
 import uvicorn
 
-from app.main import app as fastapi_app
-from app.repositories.memory_db import db
+# Ensure project root is on sys.path (useful on some Streamlit deployments)
+PROJECT_ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
+if PROJECT_ROOT not in sys.path:
+    sys.path.insert(0, PROJECT_ROOT)
+
+from app.main import app as fastapi_app  # noqa: E402
+from app.repositories.memory_db import db  # noqa: E402
 
 
 st.set_page_config(page_title="MotorIQ Backend Console", layout="wide")

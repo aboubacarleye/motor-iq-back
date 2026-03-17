@@ -74,6 +74,8 @@ Pour déployer sur Streamlit Cloud (ou équivalent) :
 - Pousser ce repo sur GitHub.
 - Créer une nouvelle app Streamlit en pointant sur le fichier `app/streamlit_app.py`.
 
+Important: le dossier `app/` est un package Python (présence de `app/__init__.py`). Si vous copiez des fichiers à la main, gardez bien ces `__init__.py`.
+
 Le script Streamlit:
 
 - démarre automatiquement l’API FastAPI (`app.main:app`) via `uvicorn` dans un thread séparé (port `8000`),
