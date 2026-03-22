@@ -5,9 +5,50 @@ from app.schemas.schemas import Claim, ClaimCreate
 from app.models.models import Claim as ClaimModel, Driver as DriverModel, Vehicle
 from app.routes.auth import get_current_user
 from app.ai.gemini_service import analyze_claim
+from app.services.claim_analysis import analyze_claim_service
 from datetime import datetime
 
 router = APIRouter(prefix="/claims", tags=["claims"])
+
+
+# Route pour analyser une claim avec Gemini
+from fastapi import Body
+from pydantic import BaseModel, Field
+
+class ClaimAnalysisResult(BaseModel):
+    fraud_risk_score: float = Field(..., description="Score de risque de fraude entre 0 (aucun risque) et 1 (fraude certaine)")
+    explanation: str = Field(..., description="Explication claire du score")
+    incoherences: list[dict] = Field(..., description="Liste des incohérences détectées (champ, problème, suggestion)")
+    recommendation: str = Field(..., description="Action recommandée (ex: 'Investigate', 'Approve', 'Reject')")
+
+@router.post(
+    "/{claim_id}/analyze",
+    response_model=ClaimAnalysisResult,
+    summary="Analyse une claim avec Gemini AI",
+    description="Lance l'analyse AI sur une claim existante et retourne un score, une explication, les incohérences et une recommandation."
+)
+def analyze_claim_route(
+    claim_id: int,
+    current_user: DriverModel = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    """
+    Analyse une claim pour fraude via Gemini AI.
+    Retourne un score, une explication, les incohérences et une recommandation structurée.
+    """
+    db_claim = db.query(ClaimModel).filter(ClaimModel.id == claim_id).first()
+    if not db_claim:
+        raise HTTPException(status_code=404, detail="Claim not found")
+    if db_claim.driver_id != current_user.id:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="You can only analyze your own claims"
+        )
+    result = analyze_claim_service(claim_id, db)
+    if not result:
+        raise HTTPException(status_code=500, detail="Analysis failed")
+    # result is a dict with fraud_risk_score, explanation, incoherences, recommendation
+    return result
 
 @router.post("/", response_model=Claim)
 def create_claim(
@@ -28,21 +69,16 @@ def create_claim(
         driver_id=current_user.id,
         vehicle_id=claim.vehicle_id,
         description=claim.description,
-        location_lat=claim.location_lat,
-        location_lng=claim.location_lng,
-        date_created=datetime.utcnow()
+        gps_latitude=claim.gps_latitude,
+        gps_longitude=claim.gps_longitude,
+        date_of_accident=claim.date_of_accident,
+        audio_url=claim.audio_url,
+        image_url=claim.image_url,
+        status=claim.status,
     )
     db.add(db_claim)
     db.commit()
     db.refresh(db_claim)
-    # AI analysis
-    analysis = analyze_claim({
-        "description": claim.description,
-        "location": f"{claim.location_lat}, {claim.location_lng}"
-    })
-    db_claim.fraud_risk_score = analysis["fraud_risk_score"]
-    db_claim.ai_analysis = str(analysis)
-    db.commit()
     return db_claim
 
 @router.get("/my/list", response_model=list[Claim])

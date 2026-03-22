@@ -19,7 +19,9 @@ def create_vehicle(
         make=vehicle.make,
         model=vehicle.model,
         year=vehicle.year,
-        license_plate=vehicle.license_plate
+        registration_number=vehicle.registration_number,
+        vin=vehicle.vin,
+        color=vehicle.color
     )
     db.add(db_vehicle)
     db.commit()

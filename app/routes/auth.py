@@ -1,4 +1,5 @@
 from fastapi import APIRouter, Depends, HTTPException, status
+from app.logger import logger
 from fastapi.security import OAuth2PasswordBearer, OAuth2PasswordRequestForm
 from sqlalchemy.orm import Session
 from app.database.connection import get_db
@@ -22,6 +23,9 @@ def verify_password(plain_password, hashed_password):
     return pwd_context.verify(plain_password, hashed_password)
 
 def get_password_hash(password):
+    # bcrypt ne supporte que 72 caractères max
+    if password:
+        password = password[:72]
     return pwd_context.hash(password)
 
 def create_access_token(data: dict, expires_delta: timedelta = None):
@@ -56,20 +60,29 @@ def get_current_user(token: str = Depends(oauth2_scheme), db: Session = Depends(
 
 @router.post("/register", response_model=Driver)
 def register(driver: DriverCreate, db: Session = Depends(get_db)):
-    db_driver = db.query(DriverModel).filter(DriverModel.email == driver.email).first()
-    if db_driver:
-        raise HTTPException(status_code=400, detail="Email already registered")
-    hashed_password = get_password_hash(driver.password)
-    db_driver = DriverModel(
-        name=driver.name,
-        email=driver.email,
-        phone=driver.phone,
-        hashed_password=hashed_password
-    )
-    db.add(db_driver)
-    db.commit()
-    db.refresh(db_driver)
-    return db_driver
+    try:
+        db_driver = db.query(DriverModel).filter(DriverModel.email == driver.email).first()
+        if db_driver:
+            raise HTTPException(status_code=400, detail="Email already registered")
+        hashed_password = get_password_hash(driver.password)
+        db_driver = DriverModel(
+            first_name=driver.first_name,
+            last_name=driver.last_name,
+            date_of_birth=driver.date_of_birth,
+            license_number=driver.license_number,
+            license_issued_date=driver.license_issued_date,
+            address=driver.address,
+            phone=driver.phone,
+            email=driver.email,
+            hashed_password=hashed_password
+        )
+        db.add(db_driver)
+        db.commit()
+        db.refresh(db_driver)
+        return db_driver
+    except Exception as e:
+        logger.error(f"Error in /auth/register: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail="Internal Server Error")
 
 @router.post("/login", response_model=Token)
 def login(form_data: OAuth2PasswordRequestForm = Depends(), db: Session = Depends(get_db)):

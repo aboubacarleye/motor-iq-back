@@ -2,10 +2,16 @@ from pydantic import BaseModel
 from typing import Optional
 from datetime import datetime
 
+
 class DriverBase(BaseModel):
-    name: str
-    email: str
+    first_name: str
+    last_name: str
+    date_of_birth: str
+    license_number: str
+    license_issued_date: str
+    address: str
     phone: str
+    email: str
 
 class DriverCreate(DriverBase):
     password: Optional[str] = None
@@ -15,11 +21,14 @@ class Driver(DriverBase):
     class Config:
         from_attributes = True
 
+
 class VehicleBase(BaseModel):
     make: str
     model: str
     year: int
-    license_plate: str
+    registration_number: str
+    vin: str
+    color: str
 
 class VehicleCreate(VehicleBase):
     pass
@@ -30,22 +39,58 @@ class Vehicle(VehicleBase):
     class Config:
         from_attributes = True
 
+
+class InsurancePolicyBase(BaseModel):
+    company: str
+    policy_number: str
+    start_date: str
+    end_date: str
+    coverage_type: str
+
+class InsurancePolicyCreate(InsurancePolicyBase):
+    pass
+
+class InsurancePolicy(InsurancePolicyBase):
+    id: int
+    driver_id: int
+    class Config:
+        from_attributes = True
+
 class ClaimBase(BaseModel):
     description: str
-    location_lat: float
-    location_lng: float
+    date_of_accident: str
+    # location: str  # Removed: use only gps_latitude and gps_longitude
+    audio_url: Optional[str] = None
+    image_url: Optional[str] = None
+    gps_latitude: Optional[float] = None
+    gps_longitude: Optional[float] = None
+    status: str
 
 class ClaimCreate(ClaimBase):
+    driver_id: int
     vehicle_id: int
+    insurance_id: Optional[int] = None
 
 class Claim(ClaimBase):
     id: int
     driver_id: int
     vehicle_id: int
-    status: str
-    date_created: datetime
-    fraud_risk_score: float
-    ai_analysis: Optional[str]
+    insurance_id: Optional[int] = None
+    fraud_risk_score: Optional[float] = None
+    ai_analysis: Optional[str] = None
+    class Config:
+        from_attributes = True
+
+class ClaimEvidenceBase(BaseModel):
+    type: str
+    url: str
+
+class ClaimEvidenceCreate(ClaimEvidenceBase):
+    claim_id: int
+
+class ClaimEvidence(ClaimEvidenceBase):
+    id: int
+    claim_id: int
     class Config:
         from_attributes = True
 
