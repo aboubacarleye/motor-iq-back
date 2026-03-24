@@ -1,5 +1,5 @@
 from pydantic import BaseModel
-from typing import Optional
+from typing import List, Optional
 from datetime import datetime
 
 class DriverBase(BaseModel):
@@ -55,3 +55,23 @@ class Token(BaseModel):
 
 class TokenData(BaseModel):
     email: Optional[str] = None
+
+
+# --------------- Claim Analysis Schemas ---------------
+
+class AnalysisFlag(BaseModel):
+    rule: str
+    triggered: bool
+    score_contribution: int
+    detail: str
+
+
+class AnalysisResponse(BaseModel):
+    claim_id: int
+    risk_score: float
+    status: str  # FLAGGED or CLEAN
+    flags: List[AnalysisFlag]
+    explanation: str
+
+    class Config:
+        from_attributes = True

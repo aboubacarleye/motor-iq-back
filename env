@@ -1,0 +1,3 @@
+DATABASE_URL=mysql+pymysql://root:@localhost/motoriq
+GEMINI_API_KEY="AIzaSyAHWiu1iylGcK5NQPwzI5MYua1XpXvLG1U"
+SECRET_KEY=ma_very_secret_key_123

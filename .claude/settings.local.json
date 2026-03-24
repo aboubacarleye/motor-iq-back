@@ -1,0 +1,21 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(python -m pytest tests/test_claim_analysis.py -v)",
+      "Bash(/c/laragon/bin/python/python-3.10/python -m pip install pytest Pillow python-multipart)",
+      "Bash(python -m pip install pydantic Pillow)",
+      "Bash(python -m pip install fastapi uvicorn sqlalchemy passlib python-jose python-dotenv python-multipart)",
+      "Bash(python -m uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload)",
+      "Bash(python -c \":*)",
+      "Bash(curl -s http://localhost:8000/)",
+      "Bash(python -m pip install google-generativeai)",
+      "Bash(python -m pip install bcrypt)",
+      "Bash(netstat -ano)",
+      "Bash(python -m uvicorn app.main:app --host 0.0.0.0 --port 8000)",
+      "Bash(python -c \"from app.main import app; print\\(''Import OK''\\)\")",
+      "Bash(python -m pip install httpx)",
+      "Bash(python -m pip install --upgrade httpx starlette)",
+      "Bash(python -m pip install \"bcrypt==4.0.1\")"
+    ]
+  }
+}

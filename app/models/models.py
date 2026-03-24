@@ -48,6 +48,7 @@ class Claim(Base):
     driver = relationship("Driver", back_populates="claims")
     vehicle = relationship("Vehicle")
     evidences = relationship("ClaimEvidence", back_populates="claim")
+    analysis_logs = relationship("AnalysisLog", back_populates="claim")
 
 class ClaimEvidence(Base):
     __tablename__ = "claim_evidences"
@@ -55,4 +56,19 @@ class ClaimEvidence(Base):
     claim_id = Column(Integer, ForeignKey("claims.id"))
     type = Column(String(50))  # photo, video, document
     url = Column(String(500))
+    file_hash = Column(String(64))  # SHA-256 hex digest
+    exif_metadata = Column(Text)    # JSON string of extracted EXIF data
     claim = relationship("Claim", back_populates="evidences")
+
+
+class AnalysisLog(Base):
+    __tablename__ = "analysis_logs"
+    id = Column(Integer, primary_key=True, index=True)
+    claim_id = Column(Integer, ForeignKey("claims.id"), index=True)
+    risk_score = Column(Float)
+    status = Column(String(20))   # FLAGGED or CLEAN
+    flags = Column(Text)          # JSON array of flag objects
+    explanation = Column(Text)
+    raw_results = Column(Text)    # Full JSON of intermediate results
+    created_at = Column(DateTime)
+    claim = relationship("Claim", back_populates="analysis_logs")

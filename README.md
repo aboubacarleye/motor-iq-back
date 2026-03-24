@@ -66,7 +66,7 @@ Le dashboard permet de :
 - Consulter le détail d’un sinistre (timeline, description, dates).
 - Mettre à jour le statut d’un sinistre.
 - Recalculer un `fraud_risk_score` simple (aléatoire).
-
+22
 ### 5. Déploiement sur Streamlit Cloud
 
 Pour déployer sur Streamlit Cloud (ou équivalent) :
